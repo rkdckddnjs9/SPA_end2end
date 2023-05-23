@@ -774,6 +774,8 @@ def global_scaling(gt_boxes, points, scale=0.05):
 
 
 def global_rotation(gt_boxes, points, rotation=np.pi / 4):
+    if rotation == None:
+        return gt_boxes, points, None
     if not isinstance(rotation, list):
         rotation = [-rotation, rotation]
     

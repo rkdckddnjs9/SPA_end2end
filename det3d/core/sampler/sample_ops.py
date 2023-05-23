@@ -286,8 +286,8 @@ class DataBaseSamplerV2:
 
             while len(sampled) < num:
                 sample = self._sampler_dict[name].sample(1)[0]
-                if sample["trajectory"][0] != trajectory:
-                    continue 
+                # if sample["trajectory"][0] != trajectory:
+                #     continue 
 
                 sampled.append(sample)
 

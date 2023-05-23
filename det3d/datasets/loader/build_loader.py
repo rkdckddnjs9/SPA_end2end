@@ -24,7 +24,8 @@ if platform.system() != "Windows":
 def build_dataloader(
     dataset, batch_size, workers_per_gpu, num_gpus=1, dist=True, **kwargs
 ):
-    shuffle = kwargs.get("shuffle", True)
+    # shuffle = kwargs.get("shuffle", True)
+    shuffle = kwargs.get("shuffle", False)
 
     if dist:
         rank, world_size = get_dist_info()

@@ -1,7 +1,7 @@
 import sys
 
-sys.path.append('~/Workspace/FutureDet')
-sys.path.append('~/Workspace/Core/nuscenes-forecast/python-sdk')
+sys.path.append('/home/changwon/detection_task/Det3D')
+sys.path.append('/home/changwon/detection_task/Det3D/nuscenes-forecast/python-sdk')
 
 import pickle
 import json
@@ -711,11 +711,13 @@ class NuScenesDataset(PointCloudDataset):
             "meta": None,
         }
         
-        if os.path.isfile(root + "/nusc.pkl"):
-            nusc = pickle.load(open(root + "/nusc.pkl", "rb"))
-        else:
-            nusc = NuScenes(version=version, dataroot=root, verbose=True)
-            pickle.dump(nusc, open(root + "/nusc.pkl", "wb"))
+        # if os.path.isfile(root + "/nusc.pkl"):
+        #     nusc = pickle.load(open(root + "/nusc.pkl", "rb"))
+        # else:
+        #     nusc = NuScenes(version=version, dataroot=root, verbose=True)
+        #     pickle.dump(nusc, open(root + "/nusc.pkl", "wb"))
+        nusc = NuScenes(version=version, dataroot=root, verbose=True)
+        pickle.dump(nusc, open(root + "/nusc.pkl", "wb"))
 
         mapped_class_names = []
         for n in self._class_names:

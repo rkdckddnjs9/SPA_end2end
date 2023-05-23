@@ -169,7 +169,7 @@ def _second_det_to_nusc_box(detection):
     scores = detection["scores"].detach().cpu().numpy()
     labels = detection["label_preds"].detach().cpu().numpy()
     
-    box3d[:, -1] = -box3d[:, -1] - np.pi / 2
+    # box3d[:, -1] = -box3d[:, -1] - np.pi / 2 # ori
 
     box_list = []
     for i in range(box3d.shape[0]):
@@ -505,7 +505,7 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=20,
         assert (len(info["sweeps"]) == nsweeps - 1), f"sweep {curr_sd_rec['token']} only has {len(info['sweeps'])} sweeps, you should duplicate to sweep num {nsweeps-1}"
         """ read from api """
         if not test:
-            ego_map = nusc.get_ego_centric_map(sweeps[0]["sample_data_token"])
+            ego_map = nusc.explorer.get_ego_centric_map(sweeps[0]["sample_data_token"])
             bev = cv2.resize(ego_map, dsize=(180, 180), interpolation=cv2.INTER_CUBIC)
 
             annotations = [nusc.get("sample_annotation", token) for token in sample["anns"]]
@@ -625,7 +625,9 @@ def create_nuscenes_infos(root_path, version="v1.0-trainval", experiment="trainv
     available_scenes = _get_available_scenes(nusc)
     available_scene_names = [s["name"] for s in available_scenes]
     train_scenes = list(filter(lambda x: x in available_scene_names, train_scenes))
+    # train_scenes = train_scenes[:int(len(train_scenes)/7)]
     val_scenes = list(filter(lambda x: x in available_scene_names, val_scenes))
+    # val_scenes = val_scenes[:int(len(val_scenes)/7)]
     train_scenes = set(
         [
             available_scenes[available_scene_names.index(s)]["token"]

@@ -4,14 +4,15 @@ import pynvml
 import sys
 import pdb 
 
-sys.path.append('/home/nperi/Workspace/FutureDet')
-sys.path.append('/home/nperi/Workspace/Core/nuscenes-forecast/python-sdk')
+sys.path.append('/home/changwon/detection_task/Det3D')
+sys.path.append('/home/changwon/detection_task/Det3D/nuscenes-forecast/python-sdk')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', required=True)
 parser.add_argument('--experiment', required=True)
 parser.add_argument('--debug', action="store_true")
-parser.add_argument("--dataset", default="nusc")
+# parser.add_argument("--dataset", default="nusc")
+parser.add_argument("--dataset", default="spa_nus")
 parser.add_argument("--architecture", default="centerpoint")
 parser.set_defaults(debug=False)
 args = parser.parse_args()
@@ -32,13 +33,13 @@ except:
 
 if args.debug:
     print("Starting in Debug Mode")
-    os.system("python  ./tools/train.py configs/{architecture}/{configPath} --seed 0 --work_dir models/{experiment}/{dataset}_{architecture}_{model}_detection".format(architecture=architecture,
+    os.system("python3  ./tools/train.py configs/{architecture}/{configPath} --seed 0 --work_dir models/{experiment}/{dataset}_{architecture}_{model}_detection".format(architecture=architecture,
                                                                                                                                                               configPath=configPath,
                                                                                                                                                               experiment=experiment,
                                                                                                                                                               model=model,
                                                                                                                                                               dataset=dataset))
 else:
-    os.system("python -m torch.distributed.launch --nproc_per_node={numDevices} ./tools/train.py configs/{architecture}/{configPath} --work_dir models/{experiment}/{dataset}_{architecture}_{model}_detection".format(architecture=architecture,
+    os.system("python3 -m torch.distributed.launch --nproc_per_node={numDevices} ./tools/train.py configs/{architecture}/{configPath} --work_dir models/{experiment}/{dataset}_{architecture}_{model}_detection".format(architecture=architecture,
                                                                                                                                                                                                                        configPath=configPath,
                                                                                                                                                                                                                        experiment=experiment,
                                                                                                                                                                                                                        model=model,

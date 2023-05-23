@@ -105,7 +105,7 @@ test_cfg = dict(
 # dataset settings
 dataset_type = "NuScenesDataset"
 nsweeps = 20
-data_root = "/home/ubuntu/Workspace/Data/nuScenes/trainval_forecast"
+data_root = "/home/changwon/detection_task/Det3D/data/nuscenes/trainval_forecast"
 
 if sampler_type == "standard":
     sample_group=[
@@ -190,7 +190,7 @@ test_anno = data_root + "/infos_test_20sweeps_withvelo_filter_True.pkl"
 
 data = dict(
     samples_per_gpu=1,
-    workers_per_gpu=4,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         root_path=data_root,
@@ -221,7 +221,7 @@ data = dict(
         nsweeps=nsweeps,
         class_names=class_names,
         pipeline=test_pipeline,
-        version='v1.0-test',
+        version='v1.0-mini',
         timesteps=timesteps,
     ),
 )

@@ -6,8 +6,10 @@ import os
 import sys
 
 
-sys.path.append('/home/nperi/Workspace/FutureDet')
-sys.path.append('/home/nperi/Workspace/Core/nuscenes-forecast/python-sdk')
+# sys.path.append('/home/nperi/Workspace/FutureDet')
+# sys.path.append('/home/nperi/Workspace/Core/nuscenes-forecast/python-sdk')
+sys.path.append('/home/changwon/detection_task/Det3D')
+sys.path.append('/home/changwon/detection_task/Det3D/nuscenes-forecast/python-sdk')
 
 
 try:
@@ -35,6 +37,7 @@ import pickle
 import time 
 
 from nuscenes.nuscenes import NuScenes
+# from det3d.datasets.spa_nusc import SPA_Nus_Dataset
 
 import pdb 
 
@@ -78,9 +81,10 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--testset", action="store_true")
     parser.add_argument("--extractBox", action="store_true")
-    parser.add_argument("--forecast", type=int, default=6)
+    parser.add_argument("--forecast", type=int, default=7)
     parser.add_argument("--forecast_mode", default="velocity_forward")
-    parser.add_argument("--classname", default="car")
+    # parser.add_argument("--classname", default="car")
+    parser.add_argument("--classname", default="pedestrian")
     parser.add_argument("--rerank", default="last")
 
     parser.add_argument("--tp_pct", type=float, default=0.6)
@@ -96,7 +100,7 @@ def parse_args():
     parser.add_argument("--C", default=1, type=float)
 
     parser.add_argument("--split", default="val")
-    parser.add_argument("--version", default="v1.0-trainval")
+    parser.add_argument("--version", default="v1.0-spa-trainval")
     parser.add_argument("--modelCheckPoint", default="latest")
 
     args = parser.parse_args()
@@ -232,6 +236,35 @@ def main():
                 )
                 if args.local_rank == 0:
                     prog_bar.update()
+
+        # for i, data_batch in enumerate(data_loader):
+        #     if i < 8:
+        #         if i == start:
+        #             torch.cuda.synchronize()
+        #             time_start = time.time()
+
+        #         if i == end:
+        #             torch.cuda.synchronize()
+        #             time_end = time.time()
+
+        #         with torch.no_grad():
+        #             outputs = batch_processor(
+        #                 model, data_batch, train_mode=False, local_rank=args.local_rank,
+        #             )
+        #         for output in outputs:
+        #             token = output["metadata"]["token"]
+        #             for k, v in output.items():
+        #                 if k not in [
+        #                     "metadata",
+        #                 ]:
+        #                     output[k] = v.to(cpu_device)
+        #             detections.update(
+        #                 {token: output,}
+        #             )
+        #             if args.local_rank == 0:
+        #                 prog_bar.update()
+        #     else:
+        #         break
 
         synchronize()
 

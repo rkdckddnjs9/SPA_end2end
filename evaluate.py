@@ -5,7 +5,6 @@ import pdb
 from copy import deepcopy
 from pprint import pprint
 import numpy as np
-import mkl
 import pandas as pd
 import pynvml
 import sys
@@ -83,11 +82,14 @@ except:
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', required=True)
 parser.add_argument('--experiment', required=True)
-parser.add_argument("--rootDirectory", default="~/Workspace/Data/nuScenes")
-parser.add_argument("--dataset", default="nusc")
+# parser.add_argument("--rootDirectory", default="/home/changwon/detection_task/Det3D/data/nuscenes")
+parser.add_argument("--rootDirectory", default="/home/changwon/detection_task/Det3D/data/spa")
+# parser.add_argument("--dataset", default="nusc")
+parser.add_argument("--dataset", default="spa_nus")
 parser.add_argument('--architecture', default="centerpoint")
 parser.add_argument("--extractBox", action="store_true")
-parser.add_argument("--version", default="v1.0-trainval") #
+# parser.add_argument("--version", default="v1.0-trainval") #
+parser.add_argument("--version", default="v1.0-spa-trainval") #
 parser.add_argument("--split", default="val") #
 parser.add_argument("--modelCheckPoint", default="latest")
 parser.add_argument("--forecast", default=7)
@@ -95,7 +97,8 @@ parser.add_argument("--tp_pct", default=0.6)
 parser.add_argument("--static_only", action="store_true")
 parser.add_argument("--eval_only", action="store_true")
 parser.add_argument("--forecast_mode", default="velocity_forward")
-parser.add_argument("--classname", default="car")
+# parser.add_argument("--classname", default="car")
+parser.add_argument("--classname", default="pedestrian")
 parser.add_argument("--rerank", default="last")
 parser.add_argument("--cohort_analysis", action="store_true")
 parser.add_argument("--jitter", action="store_true")
@@ -148,7 +151,7 @@ track_dir = "models/{experiment}/{dataset}_{architecture}_{model}_tracking".form
                                                                                    dataset=dataset)
 print("Evaluating Detection Results for " + modelCheckPoint)
 
-os.system("python ./tools/dist_test.py configs/{architecture}/{configPath} {extractBox} --work_dir {det_dir} --checkpoint {det_dir}/{modelCheckPoint}.pth --modelCheckPoint {modelCheckPoint} --forecast {forecast} --forecast_mode {forecast_mode} --classname {classname} --rerank {rerank} --tp_pct {tp_pct} {static_only} {eval_only} {cohort_analysis} {jitter} {association_oracle} {postprocess} {nogroup} --K {K} --C {C} --split {split} --version {version} --root {rootDirectory}".format(architecture=architecture, 
+os.system("python3 ./tools/dist_test.py configs/{architecture}/{configPath} {extractBox} --work_dir {det_dir} --checkpoint {det_dir}/{modelCheckPoint}.pth --modelCheckPoint {modelCheckPoint} --forecast {forecast} --forecast_mode {forecast_mode} --classname {classname} --rerank {rerank} --tp_pct {tp_pct} {static_only} {eval_only} {cohort_analysis} {jitter} {association_oracle} {postprocess} {nogroup} --K {K} --C {C} --split {split} --version {version} --root {rootDirectory}".format(architecture=architecture, 
                                                                                                                                                                                     configPath=configPath, 
                                                                                                                                                                                     extractBox= "--extractBox" if extractBox else "", 
                                                                                                                                                                                     det_dir=det_dir, 

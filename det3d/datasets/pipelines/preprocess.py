@@ -18,6 +18,7 @@ def _dict_select(dict_, inds):
         else:
             dict_[k] = [v[i][inds[i]] for i in range(len(inds))]
 
+
 def drop_arrays_by_name(gt_names, used_classes):
     inds = [i for i, x in enumerate(gt_names) if x not in used_classes]
     inds = np.array(inds, dtype=np.int64)
@@ -94,6 +95,7 @@ class Preprocess(object):
     def __init__(self, cfg=None, **kwargs):
         self.shuffle_points = cfg.shuffle_points
         self.min_points_in_gt = cfg.get("min_points_in_gt", -1)
+        # self.min_points_in_gt = cfg.get("min_points_in_gt", 5)
         
         self.mode = cfg.mode
         if self.mode == "train":
@@ -121,6 +123,8 @@ class Preprocess(object):
                 points = res["lidar"]["points"]
         elif res["type"] in ["NuScenesDataset"]:
             points = res["lidar"]["combined"]
+        elif res["type"] in ["SPA_Nus_Dataset"]:
+            points = res["lidar"]["points"]
         else:
             raise NotImplementedError
         
@@ -131,20 +135,29 @@ class Preprocess(object):
                 "gt_boxes": anno_dict["boxes"],
                 "gt_names": [np.array(box).reshape(-1) for box in anno_dict["names"]],
                 "gt_trajectory": [np.array(box).reshape(-1) for box in anno_dict["trajectory"]],
+                # 'gt_track_id': [np.array(box).reshape(-1) for box in anno_dict["track_id"]], #for spa
+                'gt_tokens': anno_dict['tokens'],
             }
 
         if self.mode == "train" and not self.no_augmentation:
-            selected = [drop_arrays_by_name(box, ["DontCare", "ignore", "UNKNOWN"]) for box in gt_dict["gt_names"]]
-            _dict_select(gt_dict, selected)
+            selected = [drop_arrays_by_name(box, ["DontCare", "ignore", "UNKNOWN", 'bicycle']) for box in gt_dict["gt_names"]]
+            try:
+                _dict_select(gt_dict, selected)
+            except:
+                print("errkr")
 
             if self.min_points_in_gt > 0:
                 point_counts = [box_np_ops.points_count_rbbox(points, gt_dict["gt_boxes"][0]) for i in range(len(selected))]
                 mask = [point_counts[i] >= self.min_points_in_gt for i in range(len(selected))]
-                _dict_select(gt_dict, mask)
+                try:
+                    _dict_select(gt_dict, mask)
+                except:
+                    print("error")
 
             gt_boxes_mask = [np.array([n in self.class_names for n in gt_dict["gt_names"][i]], dtype=np.bool_) for i in range(len(selected))]
 
-            if self.db_sampler:
+            # if self.db_sampler:
+            if False:
                 sampled_dict = self.db_sampler.sample_all(
                     res["metadata"]["image_prefix"],
                     gt_dict["gt_boxes"][0],
@@ -180,20 +193,25 @@ class Preprocess(object):
                         gt_boxes_mask[i] = np.concatenate([gt_boxes_mask[i], sampled_gt_masks], axis=0)
 
                     points = np.concatenate([sampled_points, points], axis=0)
-            
-            _dict_select(gt_dict, gt_boxes_mask)
+            try:
+                _dict_select(gt_dict, gt_boxes_mask)
+            except:
+                print("error")
 
             gt_classes = [np.array([self.class_names.index(n) + 1 for n in gt_dict["gt_names"][i]], dtype=np.int32,) for i in range(len(gt_dict["gt_boxes"]))]
             gt_dict["gt_classes"] = gt_classes
             
-            gt_dict["gt_boxes"], points, flip_aug = prep.random_flip_both(gt_dict["gt_boxes"], points)
-            gt_dict["gt_boxes"], points, rot_aug = prep.global_rotation(gt_dict["gt_boxes"], points, rotation=self.global_rotation_noise)
-            gt_dict["gt_boxes"], points, scale_aug = prep.global_scaling_v2(gt_dict["gt_boxes"], points, *self.global_scaling_noise)
-            gt_dict["gt_boxes"], points, trans_aug = prep.global_translate_(gt_dict["gt_boxes"], points, noise_translate_std=self.global_translate_std) 
+            # gt_dict["gt_boxes"], points, flip_aug = prep.random_flip_both(gt_dict["gt_boxes"], points)
+            # gt_dict["gt_boxes"], points, rot_aug = prep.global_rotation(gt_dict["gt_boxes"], points, rotation=self.global_rotation_noise)
+            # gt_dict["gt_boxes"], points, scale_aug = prep.global_scaling_v2(gt_dict["gt_boxes"], points, *self.global_scaling_noise)
+            # gt_dict["gt_boxes"], points, trans_aug = prep.global_translate_(gt_dict["gt_boxes"], points, noise_translate_std=self.global_translate_std) 
 
         elif self.no_augmentation:
             gt_boxes_mask = [np.array([n in self.class_names for n in gt_dict["gt_names"][i]], dtype=np.bool_) for i in range(len(gt_dict["gt_names"]))]
-            _dict_select(gt_dict, gt_boxes_mask)
+            try:
+                _dict_select(gt_dict, gt_boxes_mask)
+            except:
+                print("error")
 
             gt_classes = [np.array([self.class_names.index(n) + 1 for n in gt_dict["gt_names"][i]], dtype=np.int32,) for i in range(len(gt_dict["gt_names"]))]
             gt_dict["gt_classes"] = gt_classes
@@ -209,11 +227,13 @@ class Preprocess(object):
             scale_aug = 1 
 
         #bev_map, xbins, ybins, zbins, = z_offset(points)
-        bev = get_mask(anno_dict["bev"], t=trans_aug, angle=rot_aug, flip=flip_aug, scale=scale_aug)
+        # bev = get_mask(anno_dict["bev"], t=trans_aug, angle=rot_aug, flip=flip_aug, scale=scale_aug)
+        bev = anno_dict["bev"]
 
         #bev = np.concatenate((bev_map, bev[...,None]), axis=-1)
 
-        res["lidar"]["bev_map"] = bev.transpose(2, 0, 1)
+        # res["lidar"]["bev_map"] = bev.transpose(2, 0, 1)
+        res["lidar"]["bev_map"]=bev[None, :, :]
 
         res["lidar"]["points"] = points
 
@@ -249,9 +269,22 @@ class Voxelization(object):
         if res["mode"] == "train":
             gt_dict = res["lidar"]["annotations"]
             bv_range = pc_range[[0, 1, 3, 4]]
-            mask = [prep.filter_gt_box_outside_range(gt_dict["gt_boxes"][0], bv_range) for i in range(len(gt_dict["gt_boxes"]))]
-            _dict_select(gt_dict, mask)
 
+            # start_id = gt_dict['gt_track_id'][0]
+            # end_id = gt_dict['gt_track_id'][-1]
+            # common_ids = np.intersect1d(start_id, end_id)
+
+            # for key in gt_dict.keys():
+            #     data = gt_dict[key]
+            #     for ii in range(len(data)):
+            #         common_id_indices = np.where(np.isin(gt_dict['gt_track_id'][ii], common_ids))[0]
+            #         gt_dict[key][ii] = data[ii][common_id_indices]
+                    
+            mask = [prep.filter_gt_box_outside_range(gt_dict["gt_boxes"][i], bv_range) for i in range(len(gt_dict["gt_boxes"]))]
+            try:
+                _dict_select(gt_dict, mask)
+            except:
+                print("error")
             res["lidar"]["annotations"] = gt_dict
             max_voxels = self.max_voxel_num[0]
         else:
@@ -470,6 +503,8 @@ class AssignLabel(object):
                         anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                     elif res['type'] == 'WaymoDataset':
                         anno_box = np.zeros((max_objs, 10), dtype=np.float32) 
+                    elif res['type'] == 'SPA_Nus_Dataset':
+                        anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                     else:
                         raise NotImplementedError("Only Support nuScene for Now!")
 
@@ -478,6 +513,8 @@ class AssignLabel(object):
                     cat = np.zeros((max_objs), dtype=np.int64)
 
                     num_objs = min(gt_dict['gt_boxes'][i][idx].shape[0], max_objs)  
+                    if num_objs == 0:
+                        print(1)
 
                     for k in range(num_objs):
                         cls_id = gt_dict['gt_classes'][i][idx][k] - 1
@@ -535,6 +572,15 @@ class AssignLabel(object):
                                 anno_box[new_idx] = np.concatenate(
                                 (ct - (x, y), z, np.log(gt_dict['gt_boxes'][idx][k][3:6]),
                                 np.array(vx), np.array(vy), np.sin(rot), np.cos(rot)), axis=None)
+                            elif res['type'] == 'SPA_Nus_Dataset': 
+                                vx, vy = gt_dict['gt_boxes'][i][idx][k][6:8]
+                                rvx, rvy = gt_dict['gt_boxes'][i][idx][k][8:10]
+                                rot = gt_dict['gt_boxes'][i][idx][k][10]
+                                rrot = gt_dict['gt_boxes'][i][idx][k][11]
+
+                                anno_box[new_idx] = np.concatenate(
+                                    (ct - (x, y), z, np.log(gt_dict['gt_boxes'][i][idx][k][3:6]),
+                                    np.array(vx), np.array(vy), np.array(rvx), np.array(rvy), np.sin(rot), np.cos(rot), np.sin(rrot), np.cos(rrot)), axis=None)
                             else:
                                 raise NotImplementedError("Only Support Waymo and nuScene for Now")
                     
@@ -553,6 +599,8 @@ class AssignLabel(object):
                     gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                 elif res['type'] == "WaymoDataset":
                     gt_boxes_and_cls = np.zeros((max_objs, 10), dtype=np.float32)
+                elif res["type"] == "SPA_Nus_Dataset":
+                    gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                 else:
                     raise NotImplementedError()
 
@@ -608,13 +656,16 @@ class AssignLabel(object):
                     
                     for task_box in task_boxes:
                         # limit rad to [-pi, pi]
-                        task_box[:, -1] = box_np_ops.limit_period(
-                            task_box[:, -1], offset=0.5, period=np.pi * 2
-                        )
-                        task_box[:, -2] = box_np_ops.limit_period(
-                            task_box[:, -2], offset=0.5, period=np.pi * 2
-                        )
-                
+                        try:
+                            task_box[:, -1] = box_np_ops.limit_period(
+                                task_box[:, -1], offset=0.5, period=np.pi * 2
+                            )
+                            task_box[:, -2] = box_np_ops.limit_period(
+                                task_box[:, -2], offset=0.5, period=np.pi * 2
+                            )
+                        except:
+                            print(1)
+                    
                     # print(gt_dict.keys())
                     gt_dict["gt_classes_trajectory"][i] = task_classes
                     gt_dict["gt_names_trajectory"][i] = task_names
@@ -635,6 +686,9 @@ class AssignLabel(object):
                             anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                         elif res['type'] == 'WaymoDataset':
                             anno_box = np.zeros((max_objs, 10), dtype=np.float32) 
+                        elif res['type'] == 'SPA_Nus_Dataset':
+                            # [reg, hei, dim, vx, vy, rots, rotc]
+                            anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                         else:
                             raise NotImplementedError("Only Support nuScene for Now!")
 
@@ -700,6 +754,15 @@ class AssignLabel(object):
                                     anno_box[new_idx] = np.concatenate(
                                     (ct - (x, y), z, np.log(gt_dict['gt_boxes_trajectory'][idx][k][3:6]),
                                     np.array(vx), np.array(vy), np.sin(rot), np.cos(rot)), axis=None)
+                                elif res['type'] == 'SPA_Nus_Dataset': 
+                                    vx, vy = gt_dict['gt_boxes_trajectory'][i][idx][k][6:8]
+                                    rvx, rvy = gt_dict['gt_boxes_trajectory'][i][idx][k][8:10]
+                                    rot = gt_dict['gt_boxes_trajectory'][i][idx][k][10]
+                                    rrot = gt_dict['gt_boxes_trajectory'][i][idx][k][11]
+
+                                    anno_box[new_idx] = np.concatenate(
+                                        (ct - (x, y), z, np.log(gt_dict['gt_boxes_trajectory'][i][idx][k][3:6]),
+                                        np.array(vx), np.array(vy), np.array(rvx), np.array(rvy), np.sin(rot), np.cos(rot), np.sin(rrot), np.cos(rrot)), axis=None)
                                 else:
                                     raise NotImplementedError("Only Support Waymo and nuScene for Now")
                         
@@ -718,19 +781,25 @@ class AssignLabel(object):
                         gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                     elif res['type'] == "WaymoDataset":
                         gt_boxes_and_cls = np.zeros((max_objs, 10), dtype=np.float32)
+                    elif res["type"] == "SPA_Nus_Dataset":
+                        gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                     else:
                         raise NotImplementedError()
 
-                    boxes_and_cls = np.concatenate((boxes, 
-                        classes.reshape(-1, 1).astype(np.float32)), axis=1)
-                    num_obj = len(boxes_and_cls)
-                    assert num_obj <= max_objs, "{} is greater than {}".format(num_obj, max_objs)
-                    # x, y, z, w, l, h, rotation_y, velocity_x, velocity_y, class_name
-                    boxes_and_cls = boxes_and_cls[:, [0, 1, 2, 3, 4, 5, 10, 11, 6, 7, 8, 9, 12]]
-                    gt_boxes_and_cls[:num_obj] = boxes_and_cls
+                    try:
+                        boxes_and_cls = np.concatenate((boxes, 
+                            classes.reshape(-1, 1).astype(np.float32)), axis=1)
+                        num_obj = len(boxes_and_cls)
+                        assert num_obj <= max_objs, "{} is greater than {}".format(num_obj, max_objs)
+                        # x, y, z, w, l, h, rotation_y, velocity_x, velocity_y, class_name
+                        boxes_and_cls = boxes_and_cls[:, [0, 1, 2, 3, 4, 5, 10, 11, 6, 7, 8, 9, 12]]
+                        gt_boxes_and_cls[:num_obj] = boxes_and_cls
 
-                    example.update({'gt_boxes_and_cls_trajectory': gt_boxes_and_cls})
-                    example.update({'hm_trajectory': hms, 'anno_box_trajectory': anno_boxs, 'ind_trajectory': inds, 'mask_trajectory': masks, 'cat_trajectory': cats})
+                        example.update({'gt_boxes_and_cls_trajectory': gt_boxes_and_cls})
+                        example.update({'hm_trajectory': hms, 'anno_box_trajectory': anno_boxs, 'ind_trajectory': inds, 'mask_trajectory': masks, 'cat_trajectory': cats})
+                    except:
+                        print("fxxking error")
+                        continue
            
                 ############################################################################################### 
 
@@ -799,6 +868,9 @@ class AssignLabel(object):
                             anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                         elif res['type'] == 'WaymoDataset':
                             anno_box = np.zeros((max_objs, 10), dtype=np.float32) 
+                        elif res['type'] == 'SPA_Nus_Dataset':
+                            # [reg, hei, dim, vx, vy, rots, rotc]
+                            anno_box = np.zeros((max_objs, 14), dtype=np.float32)
                         else:
                             raise NotImplementedError("Only Support nuScene for Now!")
 
@@ -864,6 +936,15 @@ class AssignLabel(object):
                                     anno_box[new_idx] = np.concatenate(
                                     (ct - (x, y), z, np.log(gt_dict['gt_boxes_forecast'][idx][k][3:6]),
                                     np.array(vx), np.array(vy), np.sin(rot), np.cos(rot)), axis=None)
+                                elif res['type'] == 'SPA_Nus_Dataset': 
+                                    vx, vy = gt_dict['gt_boxes_forecast'][i][idx][k][6:8]
+                                    rvx, rvy = gt_dict['gt_boxes_forecast'][i][idx][k][8:10]
+                                    rot = gt_dict['gt_boxes_forecast'][i][idx][k][10]
+                                    rrot = gt_dict['gt_boxes_forecast'][i][idx][k][11]
+
+                                    anno_box[new_idx] = np.concatenate(
+                                        (ct - (x, y), z, np.log(gt_dict['gt_boxes_forecast'][i][idx][k][3:6]),
+                                        np.array(vx), np.array(vy), np.array(rvx), np.array(rvy), np.sin(rot), np.cos(rot), np.sin(rrot), np.cos(rrot)), axis=None)
                                 else:
                                     raise NotImplementedError("Only Support Waymo and nuScene for Now")
                         
@@ -882,6 +963,8 @@ class AssignLabel(object):
                         gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                     elif res['type'] == "WaymoDataset":
                         gt_boxes_and_cls = np.zeros((max_objs, 10), dtype=np.float32)
+                    elif res["type"] == "SPA_Nus_Dataset":
+                        gt_boxes_and_cls = np.zeros((max_objs, 13), dtype=np.float32)
                     else:
                         raise NotImplementedError()
 
